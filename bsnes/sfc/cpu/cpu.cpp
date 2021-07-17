@@ -28,13 +28,21 @@ auto CPU::Enter() -> void {
   while(true) {
     scheduler.synchronize();
     cpu.main();
+    if (scheduler.StepOnce) scheduler.leave(Scheduler::Event::Desynchronized);
   }
 }
 
 auto CPU::main() -> void {
   if(r.wai) return instructionWait();
   if(r.stp) return instructionStop();
-  if(!status.interruptPending) return instruction();
+  if(!status.interruptPending) {
+    if (platform->traceEnabled) {
+      vector<string> disassembly = disassemble();
+      disassembly[1].append(" V:", hex(cpu.vcounter(), 3), " H:", hex(cpu.hdot(), 3));
+      platform->cpuTrace(disassembly);
+    }
+    return instruction();
+  }
 
   if(status.nmiPending) {
     status.nmiPending = 0;
